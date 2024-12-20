@@ -29,8 +29,8 @@ The features of this tool include:
 [ X ]     -Firewall toggle
 [   ]     -MWCCDC firewall setup (requires recieving the Teampack for 2025)
         -Active Directory management
-[   ]     -Scramble default password for all users and save in a .csv
-[ X ]     -Deprivilege all users besides current administrator
+[ X ]     -Scramble default password for all users and save in a .csv
+[ X ]     -Remove groups from all users besides current administrator
 [   ]     -Generate new AD users
 [   ]     -Begin auditing user permissions
 [   ]     -Organizational Unit Management
@@ -618,10 +618,12 @@ try {
                             Write-Host -ForegroundColor Red "Active Directory service was not found!"
                             Break
                         }
+                        
+                        mkdir -ErrorAction SilentlyContinue $env:HOMEDRIVE\WindowsHardeningCLI\AD | Out-Null
 
                         Write-Host -ForegroundColor Blue "`n---Active Directory---"
                         Write-Host "1. Scramble default password for all users and save in a .csv"
-                        Write-Host "2. Deprivilege all users besides current administrator"
+                        Write-Host "2. Remove groups from all users besides current administrator"
                         Write-Host "3. Generate new AD users"
                         Write-Host "4. Begin auditing user permissions"
                         Write-Host "5. Organizational Unit Management"
@@ -633,16 +635,50 @@ try {
                             "1"
                                 {
                                     Write-Host "`n---Change All Default Passwords---"
-                                    Write-Warning "This generates new passwords for all users in this Active Directory and outputs them into a .csv"
+                                    Write-Warning "This generates new passwords for all users in this Active Directory besides the current Administrator and outputs them into a .csv in the $env:HOMEDRIVE\WindowsHardeneingCLI\AD directory"
                                     $warning = Read-Host "Are you sure you want to continue? (y/N)"
                                     if ($warning -inotlike "y*")
                                     {
                                         Break
                                     }
+
+                                    function New-Password
+                                    {
+                                        do
+                                        {
+                                            $length = Get-Random -Minimum 12 -Maximum 17
+                                            $characters = @([char[]]("a"[0].."z"[0])+[char[]]("A"[0].."Z"[0])+[char[]]("0"[0].."9"[0])+[char[]]("!@$%^&*()-=_{}[]|:?.~"))
+                                            $new = -join (Get-Random -Count $length -InputObject $characters)
+                                        } until(($new -match "[a-z]") -and ($new -match "[A-Z]") -and ($new -match "[0-9]") -and ($new -match "[!@$%^&*()\-=_{\[\]}|:?.~]"))
+                                        return $new
+                                    }   
+
+                                    $currentAdmin = $env:USERNAME
+                                    $users = Get-ADUser -Filter {SamAccountName -ne $currentAdmin}
+                                    $passwords = @()
+
+                                    foreach ($user in $users) {
+                                        try {
+                                            $newPass = New-Password
+                                            Set-ADAccountPassword -Identity $user.SamAccountName -NewPassword (ConvertTo-SecureString $newPass -AsPlainText -Force) -Reset
+                                            $passwords += [PSCustomObject]@{
+                                                Username = $user.SamAccountName
+                                                Password = $newPass
+                                            }
+                                            Write-Host -ForegroundColor Green "Password reset for $($user.SamAccountName)"
+                                        } catch {
+                                            Write-Host -ForegroundColor Red "Failed to reset password for $($user.SamAccountName): $_"
+                                        }
+                                    }
+                                    
+                                    $csvPath = "$env:HOMEDRIVE\WindowsHardeningCLI\AD\AD_Passwords.csv"
+                                    $passwords | Export-Csv -Path $csvPath -NoTypeInformation
+                                    Write-Host -ForegroundColor Cyan "Passwords saved to $csvPath"
                                 }
                             "2"
                                 {
                                     Write-Warning "This will remove *ALL* groups and privileges that *ALL* users (besides this current Admin!) on the AD Domain belong to, reducing them all to `"Domain Users`""
+                                    Write-Host "A log of groups that members were previously in will be stored in the $env:HOMEDRIVE\WindowsHardeningCLI\AD directory"
                                     $warning = Read-Host "Are you sure you want to continue? (y/N)"
                                     if ($warning -inotlike "y*")
                                     {
@@ -651,26 +687,33 @@ try {
 
                                     $currentAdmin = $env:USERNAME
                                     $users = Get-ADUser -Filter {SamAccountName -ne $currentAdmin}
+                                    $groupLogPath = "$env:HOMEDRIVE\WindowsHardeningCLI\AD\AD_removedgroups$i.txt"
+                                    Out-File -FilePath $groupLogPath -Force
+                                    "Time: $(Get-Date -Format "MM/dd/yyyy HH:mm:ss K")" | Out-File -Append -FilePath $groupLogPath 
 
-                                    # Iterate through each user and remove all privileges
                                     foreach ($user in $users)
                                     {
-                                        # Check if the user is a member of any groups and remove them
                                         $userGroups = Get-ADUser $user.SamAccountName | Get-ADPrincipalGroupMembership | Where-Object { $_.SamAccountName -ne "Domain Users" }
                                         foreach ($group in $userGroups)
                                         {
-                                            Remove-ADGroupMember -Identity $group.SamAccountName -Members $user.SamAccountName -Confirm:$false
-                                        } 
-                                        # Remove any direct user privileges
-                                        $user | Remove-ADUser -RemoveOtherAttributes -Confirm:$false
+                                            try
+                                            {
+                                                Remove-ADGroupMember -Identity $group.SamAccountName -Members $user.SamAccountName -Confirm:$false
+                                                Write-Host -ForegroundColor Green "Removed $($user.SamAccountName) from group $($group.SamAccountName)"
+                                                "$($user.SamAccountName) was removed from group $($group.SamAccountName)" | Out-File -Append -FilePath $groupLogPath
+                                            }
+                                            catch
+                                            {
+                                                Write-Host -ForegroundColor Red "Failed to remove $($user.SamAccountName) from $(group.SamAccountName): $_"
+                                            }
+                                        }
                                     }
 
-                                    Write-Host "`nPrivileges have been removed for all users except $currentAdmin."
-
+                                    Write-Host -ForegroundColor Cyan "Groups have been removed from all AD users, log saved at: $groupLogPath"
                                 }
                             "3"
                                 {
-
+                                    
                                 }
                             "4"
                                 {
@@ -693,7 +736,7 @@ try {
                                     Write-Host "`nInvalid choice"
                                 }
                         }
-                    } while ($adchoice -ne "3")
+                    } while ($adchoice -ne "7")
                 }
 
             "4" 
