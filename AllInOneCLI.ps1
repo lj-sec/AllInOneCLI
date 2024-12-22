@@ -136,6 +136,18 @@ $webClient = New-Object System.Net.WebClient
 
 Write-Log "Script started!"
 
+# Repo root
+$reporoot=$null
+git help >$null
+if($?)
+{
+    $reporoot = $(git rev-parse --show-toplevel 2>$null)
+}
+if(!$reporoot)
+{
+    Write-Log -NoDate "Repo root could not be established"
+}
+
 $update=$false
 
 if(!$NoNet.IsPresent)
@@ -370,7 +382,7 @@ try {
 
     Write-Host "`n========Windows Hardening========"
 
-    DO
+    do
     {
         Write-Host "`n---Main Menu---"
         Write-Host "1. Scripted Changes"
@@ -545,7 +557,7 @@ try {
                 }
             "2" 
                 {
-                    DO
+                    do
                     {
                         Write-Host -ForegroundColor Red "`n---Firewall---"
                         Write-Host "1. Enable Firewall"
@@ -611,7 +623,7 @@ try {
                 }
             "3" 
                 {
-                    DO
+                    do
                     {
                         if(!$activeDirectoryRunning)
                         {
@@ -641,6 +653,7 @@ try {
                                     {
                                         Break
                                     }
+                                    Write-Log "Change all default passwords script begins"
 
                                     function New-Password
                                     {
@@ -657,16 +670,20 @@ try {
                                     $users = Get-ADUser -Filter {SamAccountName -ne $currentAdmin}
                                     $passwords = @()
 
-                                    foreach ($user in $users) {
-                                        try {
+                                    foreach ($user in $users)
+                                    {
+                                        try
+                                        {
                                             $newPass = New-Password
                                             Set-ADAccountPassword -Identity $user.SamAccountName -NewPassword (ConvertTo-SecureString $newPass -AsPlainText -Force) -Reset
                                             $passwords += [PSCustomObject]@{
                                                 Username = $user.SamAccountName
                                                 Password = $newPass
-                                            }
-                                            Write-Host -ForegroundColor Green "Password reset for $($user.SamAccountName)"
-                                        } catch {
+                                        }
+                                        Write-Host -ForegroundColor Green "Password reset for $($user.SamAccountName)"
+                                        } 
+                                        catch
+                                        {
                                             Write-Host -ForegroundColor Red "Failed to reset password for $($user.SamAccountName): $_"
                                         }
                                     }
@@ -674,22 +691,24 @@ try {
                                     $csvPath = "$env:HOMEDRIVE\WindowsHardeningCLI\AD\AD_Passwords.csv"
                                     $passwords | Export-Csv -Path $csvPath -NoTypeInformation
                                     Write-Host -ForegroundColor Cyan "Passwords saved to $csvPath"
+                                    Write-Log "Change all default passwords script ends, log saved to: $csvPath"
                                 }
                             "2"
                                 {
-                                    Write-Warning "This will remove *ALL* groups and privileges that *ALL* users (besides this current Admin!) on the AD Domain belong to, reducing them all to `"Domain Users`""
+                                    Write-Warning "This will remove *ALL* groups that *ALL* users (besides this current Admin!) on the AD Domain belong to, reducing them all to `"Domain Users`""
                                     Write-Host "A log of groups that members were previously in will be stored in the $env:HOMEDRIVE\WindowsHardeningCLI\AD directory"
                                     $warning = Read-Host "Are you sure you want to continue? (y/N)"
                                     if ($warning -inotlike "y*")
                                     {
                                         Break
                                     }
+                                    Write-Log "Remove all AD users from groups script begins"
 
                                     $currentAdmin = $env:USERNAME
                                     $users = Get-ADUser -Filter {SamAccountName -ne $currentAdmin}
                                     $groupLogPath = "$env:HOMEDRIVE\WindowsHardeningCLI\AD\AD_removedgroups$i.txt"
                                     Out-File -FilePath $groupLogPath -Force
-                                    "Time: $(Get-Date -Format "MM/dd/yyyy HH:mm:ss K")" | Out-File -Append -FilePath $groupLogPath 
+                                    "Time Start: $(Get-Date -Format "MM/dd/yyyy HH:mm:ss K")" | Out-File -Append -FilePath $groupLogPath 
 
                                     foreach ($user in $users)
                                     {
@@ -710,22 +729,76 @@ try {
                                     }
 
                                     Write-Host -ForegroundColor Cyan "Groups have been removed from all AD users, log saved at: $groupLogPath"
+                                    "Time End: $(Get-Date -Format "MM/dd/yyyy HH:mm:ss K")" | Out-File -Append -FilePath $groupLogPath
+                                    Write-Log "Remove all AD users from groups script ends"
                                 }
                             "3"
                                 {
-                                    
+                                    Write-Warning "This will generate users for this AD"
+                                    $warning = Read-Host "Are you sure you want to continue? (y/N)"
+                                    if ($warning -inotlike "y*")
+                                    {
+                                        Break
+                                    }
                                 }
                             "4"
                                 {
-
+                                    Write-Warning "This will begin the auditing of user permissions and groups on this AD"
+                                    $warning = Read-Host "Are you sure you want to continue? (y/N)"
+                                    if ($warning -inotlike "y*")
+                                    {
+                                        Break
+                                    }
                                 }
                             "5"
                                 {
+                                    do
+                                    {
+                                        Write-Host -ForegroundColor Blue "`n---OU Management---"
+                                        Write-Host ""
+                                        Write-Host ""
+                                        $ouchoice = Read-Host "`nYour selection"
+                                        switch($ouchoice)
+                                        {
+                                            ""
+                                                {
 
+                                                }
+                                            "1"
+                                                {
+                                                    Break
+                                                }
+                                            default
+                                                {
+                                                    Write-Host "`nInvalid choice"
+                                                }
+                                        }
+                                    } while ($ouchoice -ne "1")
                                 }
                             "6"
                                 {
+                                    do
+                                    {
+                                        Write-Host -ForegroundColor Blue "`n---GP Management---"
+                                        Write-Host ""
+                                        Write-Host ""
+                                        $ouchoice = Read-Host "`nYour selection"
+                                        switch($ouchoice)
+                                        {
+                                            ""
+                                                {
 
+                                                }
+                                            "1"
+                                                {
+                                                    Break
+                                                }
+                                            default
+                                                {
+                                                    Write-Host "`nInvalid choice"
+                                                }
+                                        }
+                                    } while ($ouchoice -ne "1")
                                 }
                             "7"
                                 {
@@ -741,7 +814,7 @@ try {
 
             "4" 
                 {
-                    DO
+                    do
                     {
                         Write-Host -ForegroundColor Green "`n---Updates---"
                         Write-Host "1. Update via .csv"
@@ -788,11 +861,11 @@ try {
                                             }
                                         "2"
                                             {
-                                                DO
+                                                do
                                                 {
                                                     $updateYear = Read-Host "Enter a four-digit year (e.g. 2016)"
                                                 } while (($updateYear.Length -ne 4) -or ($updateYear -notmatch "^[\d]+$"))
-                                                DO
+                                                do
                                                 {
                                                     $updateMonth = Read-Host "Enter a two-digit month (e.g. 04)"
                                                 } while (($updateMonth.Length -ne 2) -or ($updateMonth -notmatch "^[\d]+$") -or ($updateMonth -gt "12"))
@@ -870,7 +943,7 @@ try {
 
             "5" 
                 {
-                    DO
+                    do
                     {
                         Write-Host -ForegroundColor Magenta "`n---General Security---"
                         write-Host "1. Restart Services"
