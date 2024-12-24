@@ -83,7 +83,7 @@ param (
 $currentUser = New-Object System.Security.Principal.WindowsPrincipal([System.Security.Principal.WindowsIdentity]::GetCurrent())
 if (!$currentUser.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator))
 {
-    Write-Warning "You must run this script as an administrator."
+    Write-Warning "`nYou must run this script as an administrator."
     Exit 1
 }
 
@@ -95,7 +95,7 @@ if($Force.IsPresent)
 } 
 elseif([System.Environment]::GetEnvironmentVariable("updatedWithoutRestart","Machine" -eq $true))
 {
-    Write-Warning "You have updated without restart! Updates must take effect before rerunning script."
+    Write-Warning "`nYou have updated without restart! Updates must take effect before rerunning script."
     Write-Host "If you have restarted and this is a false positive (which happens), rerun this script with -Force."
     Exit 1
 }
@@ -214,7 +214,7 @@ if(!$NoNet.IsPresent)
             }
         default
             {
-                Write-Warning "Could not detect compatible Windows Version, and therefore .NET version.`nThis script has only been tested on Windows Server 2012/Windows 10 and later, with .NET 4.8 and later."
+                Write-Warning "`nCould not detect compatible Windows Version, and therefore .NET version.`nThis script has only been tested on Windows Server 2012/Windows 10 and later, with .NET 4.8 and later."
                 Write-Host "If you would like to run this script anyway (not recommended), rerun with -NoNet."
                 Exit 1
             }
@@ -223,12 +223,12 @@ if(!$NoNet.IsPresent)
     if($outdatedNet)
     {
         Write-Log "Outdated .NET Framework detected"
-        Write-Warning ".NET Framework is not 4.8 or above!"
+        Write-Warning "`n.NET Framework is not 4.8 or above!"
         $updateNet = Read-Host "Would you like to update now? (Y/n)"
 
         if($updateNet -ilike "n*")
         {
-            Write-Warning "Script requires .NET 4.8+, exiting..."
+            Write-Warning "`nScript requires .NET 4.8+, exiting..."
             Write-Host "If you would like to run this script anyway (not recommended), rerun with -Force."
             Write-Log "Script requires .NET 4.8+, exiting..."
             Exit 1
@@ -280,11 +280,11 @@ if (!$NoWmf.IsPresent)
     }
     else
     {
-        Write-Warning "Powershell is not up-to-date!"
+        Write-Warning "`nPowershell is not up-to-date!"
         $updateWmf = Read-Host "WMF 5.1 or later is required. Would you like to update now to 5.1? (Y/n)"
         if($updateWmf -ilike "n*")
         {
-            Write-Warning "Powershell 5.1 and later is required for this script!"
+            Write-Warning "`nPowershell 5.1 and later is required for this script!"
             Write-Host "If you would like to run this script anyway (not recommended), rerun with -NoWmf."
             Exit 1
         }
@@ -303,7 +303,7 @@ if (!$NoWmf.IsPresent)
                     }
                 default
                     {
-                        Write-Warning "Could not fetch link to download WMF 5.1. This script has only been tested on Windows Server 2012/Windows 10 (1607) and later, with WMF 5.1+."
+                        Write-Warning "`nCould not fetch link to download WMF 5.1. This script has only been tested on Windows Server 2012/Windows 10 (1607) and later, with WMF 5.1+."
                         Write-Host "It is highly recommended to install this version yourself.`nIf you would like to run this script anyway (not recommended), rerun with -NoWmf"
                     }
             }
@@ -341,7 +341,7 @@ if($update)
     else
     {
         [System.Environment]::SetEnvironmentVariable("updatedWithoutRestart",$true,"Machine")
-        Write-Warning "Restart is required for updates to take effect."
+        Write-Warning "`nRestart is required for updates to take effect."
         Exit 1
     }
 }
@@ -351,10 +351,10 @@ $try=$false
 $catch=$false
 
 # Checking if machine is server, and if so what services running on it
-$serverOS = ((Get-WmiObject Win32_OperatingSystem).Caption -ilike "*Server*")
+$serverOS = ((Get-WmiObject Win32_OperatingSystem).ProductType -in 2,3)
 $activeDirectoryRunning = ((Get-Service -ErrorAction SilentlyContinue -Name NTDS).Status -eq "Running")
 $dnsRunning = ((Get-Service -ErrorAction SilentlyContinue -Name DNS).Status -eq "Running")
-$dhcpRunning = ((Get-Service -ErrorAction SilentlyContinue -Name DHCP).Status -eq "Running")
+$dhcpRunning = ((Get-Service -ErrorAction SilentlyContinue -Name DhcpServer).Status -eq "Running")
 
 if($serverOS)
 {
@@ -429,7 +429,7 @@ try {
                     }
                     else
                     {
-                        Write-Warning "HKLM backup failed!"
+                        Write-Warning "`nHKLM backup failed!"
                         $confirmHardening = Read-Host "Continue without a backup? (Not recommended) (y/N):"
                         if($confirmHardening -ilike "y*")
                         {
@@ -569,7 +569,7 @@ try {
                         {
                             "1"
                                 {
-                                    Write-Warning "This will enable the firewall on all profiles with default/already established rules."
+                                    Write-Warning "`nThis will enable the firewall on all profiles with default/already established rules."
                                     $warning = Read-Host "Are you sure you want to continue? (y/N)"
                                     if ($warning -inotlike "y*")
                                     {
@@ -581,7 +581,7 @@ try {
                                 }
                             "2"
                                 {
-                                    Write-Warning "This will disable the firewall on all profiles."
+                                    Write-Warning "`nThis will disable the firewall on all profiles."
                                     $warning = Read-Host "Are you sure you want to continue? (y/N)"
                                     if ($warning -inotlike "y*")
                                     {
@@ -593,7 +593,7 @@ try {
                                 }
                             "3"
                                 {
-                                    Write-Warning "This will setup firewall rules allowing necessary traffic in accordance with the 2024 MWCCDC Topology."
+                                    Write-Warning "`nThis will setup firewall rules allowing necessary traffic in accordance with the 2024 MWCCDC Topology."
                                     $warning = Read-Host "Are you sure you want to continue? (y/N)"
                                     if ($warning -inotlike "y*")
                                     {
@@ -627,7 +627,7 @@ try {
                     {
                         if(!$activeDirectoryRunning)
                         {
-                            Write-Host -ForegroundColor Red "Active Directory service was not found!"
+                            Write-Host -ForegroundColor Red "Active Directory service was not found at start of script!"
                             Break
                         }
                         
@@ -647,7 +647,7 @@ try {
                             "1"
                                 {
                                     Write-Host "`n---Change All Default Passwords---"
-                                    Write-Warning "This generates new passwords for all users in this Active Directory besides the current Administrator and outputs them into a .csv in the $env:HOMEDRIVE\WindowsHardeneingCLI\AD directory"
+                                    Write-Warning "`nThis generates new passwords for all users in this Active Directory besides the current Administrator and outputs them into a .csv in the $env:HOMEDRIVE\WindowsHardeneingCLI\AD directory"
                                     $warning = Read-Host "Are you sure you want to continue? (y/N)"
                                     if ($warning -inotlike "y*")
                                     {
@@ -695,7 +695,7 @@ try {
                                 }
                             "2"
                                 {
-                                    Write-Warning "This will remove *ALL* groups that *ALL* users (besides this current Admin!) on the AD Domain belong to, reducing them all to `"Domain Users`""
+                                    Write-Warning "`nThis will remove *ALL* groups that *ALL* users (besides this current Admin!) on the AD Domain belong to, reducing them all to `"Domain Users`""
                                     Write-Host "A log of groups that members were previously in will be stored in the $env:HOMEDRIVE\WindowsHardeningCLI\AD directory"
                                     $warning = Read-Host "Are you sure you want to continue? (y/N)"
                                     if ($warning -inotlike "y*")
@@ -734,7 +734,7 @@ try {
                                 }
                             "3"
                                 {
-                                    Write-Warning "This will generate users for this AD"
+                                    Write-Warning "`nThis will generate users for this AD"
                                     $warning = Read-Host "Are you sure you want to continue? (y/N)"
                                     if ($warning -inotlike "y*")
                                     {
@@ -743,7 +743,7 @@ try {
                                 }
                             "4"
                                 {
-                                    Write-Warning "This will begin the auditing of user permissions and groups on this AD"
+                                    Write-Warning "`nThis will begin the auditing of user permissions and groups on this AD"
                                     $warning = Read-Host "Are you sure you want to continue? (y/N)"
                                     if ($warning -inotlike "y*")
                                     {
@@ -827,7 +827,7 @@ try {
                             "1"
                                 {
                                     Write-Host "`n---Manual updating through a CSV list---"
-                                    Write-Warning "This will attempt to update via a CSV file consisting of hyperlinks to the Microsoft Update Catalog"
+                                    Write-Warning "`nThis will attempt to update via a CSV file consisting of hyperlinks to the Microsoft Update Catalog"
                                     $warning = Read-Host "Are you sure you want to continue? (y/N)"
                                     if ($warning -inotlike "y*")
                                     {
@@ -940,13 +940,19 @@ try {
                         }
                     } while ($updatechoice -ne "4")
                 }
-
             "5" 
                 {
                     do
                     {
                         Write-Host -ForegroundColor Magenta "`n---General Security---"
-                        write-Host "1. Restart Services"
+                        if($serverOS)
+                        {
+                            Write-Host "1. Restart Services"
+                        }
+                        else
+                        {
+                            Write-Host -ForegroundColor Red "1. Restart Services (X)"
+                        }
                         Write-Host "2. Sysinternals"
                         Write-Host "3. Logon Banner"
                         Write-Host "4. Bluespawn"
@@ -956,43 +962,78 @@ try {
                         switch($gschoice)
                         {
                             "1"
-                            {
-                                Write-Warning "This will attempt to restart the DNS, DHCP, and NTFS services found on this computer."
-                                $warning = Read-Host "Are you sure you want to continue? (y/N)"
-                                if ($warning -inotlike "y*")
                                 {
-                                    Break
+                                    if(!$serverOS)
+                                    {
+                                        Write-Warning "`nServer operating system not detected!`n"
+                                    }
+                                    Write-Warning "`nThis will attempt to restart the DNS, DHCP, and NTDS services found on this computer."
+                                    $warning = Read-Host "Are you sure you want to continue? (y/N)"
+                                    if ($warning -inotlike "y*")
+                                    {
+                                        Break
+                                    }
+
+                                    Write-Host "Attempting to restart services..."
+                                    Write-Log "Attempting to restart services..."
+                                    $ErrorActionPreference = "Stop"
+                                    if($dnsRunning)
+                                    {
+                                        try
+                                        {
+                                            Write-Host "Restarting DNS..."
+                                            Restart-Service DHS -Force
+                                            Write-Host -ForegroundColor Green "Successfully restarted DNS"
+                                        }
+                                        catch
+                                        {
+                                            Write-Host "Failed to restart DNS: $_"
+                                        }
+                                    }
+                                    else
+                                    {
+                                        Write-Host "DNS service not found"
+                                    }
+                                    if($dhcpRunning)
+                                    {
+                                        try
+                                        {
+                                            Write-Host "Restarting DHCP..."
+                                            Restart-Service DhcpServer -Force
+                                            Write-Host -ForegroundColor Green "Successfully restarted DHCP"
+                                        }
+                                        catch
+                                        {
+                                            Write-Host "Failed to restart DHCP: $_"
+                                        }
+                                    }
+                                    else
+                                    {
+                                        Write-Host "DHCP service not found"
+                                    }
+                                    if($activeDirectoryRunning)
+                                    {
+                                        try
+                                        {
+                                            Write-Host "Restarting Active Directory (NTDS)..."
+                                            Restart-Service NTDS -Force
+                                            Write-Host -ForegroundColor Green "Successfully restarted NTDS"
+                                        }
+                                        catch
+                                        {
+                                            Write-Host "Failed to restart NTDS: $_"
+                                        }
+                                    }
+                                    else
+                                    {
+                                        Write-Host "NTDS service not found"
+                                    }
+                                    $ErrorActionPreference = "SilentlyContinue"
+                                    Write-Log "Restart services script complete"
                                 }
-                                
-                                Write-Host "Restarting services..."
-                                if(Get-Service | Where-Object {$_.Name -eq "DNS"})
-                                {
-                                    Restart-Service DNS -Force
-                                }
-                                else
-                                {
-                                    Write-Host "DNS service could not be found!"
-                                }
-                                if(Get-Service | Where-Object {$_.Name -eq "NTFS"})
-                                {
-                                    Restart-Service NTFS -Force
-                                }
-                                else
-                                {
-                                    Write-Host "NTFS service could not be found!"
-                                }
-                                if(Get-Service | Where-Object {$_.Name -eq "DHCPServer"})
-                                {
-                                    Restart-Service DHCPServer -Force
-                                }
-                                else
-                                {
-                                    Write-Host "DHCPServer service could not be found!"
-                                }
-                            }
                             "2"
                                 {
-                                    Write-Warning "This will attempt to install the Sysinternals Suite to $env:HOMEDRIVE\Sysinternals."
+                                    Write-Warning "`nThis will attempt to install the Sysinternals Suite to $env:HOMEDRIVE\Sysinternals."
                                     $warning = Read-Host "Are you sure you want to continue? (y/N)"
                                     if ($warning -inotlike "y*")
                                     {
@@ -1029,53 +1070,84 @@ try {
                                 }
                             "3"
                                 {
-                                    Write-Warning "This will set up a notice of the terms of use of using this resource at logon."
+                                    Write-Warning "`nThis will set up a notice of the terms of use of using this resource at logon."
                                     $warning = Read-Host "Are you sure you want to continue? (y/N)"
                                     if ($warning -inotlike "y*")
                                     {
                                         Break
                                     }
-
                                     Write-Host "Would you like to..."
                                     Write-Host "1. Write your own policy"
-                                    Write-Host "2. Use our generic terms of use"
+                                    Write-Host "2. Use generic terms of use"
                                     $termsChoice = Read-Host "Your selection"
                                     switch($termsChoice)
                                     {
                                         "1"
-                                        {
-                                            $legalNoticeCaption = Read-Host "What would you like the heading to state?"
-                                            $legalNoticeText = Read-Host "What would you like the text to state?"
-                                            Write-Host "Setting logon banner..."
-                                            reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System" /v legalnoticecaption /t REG_SZ /d "$legalNoticeCaption"
-                                            reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System" /v legalnoticetext /t REG_SZ /d "$legalNoticeText"
-                                        }
+                                            {
+                                                do
+                                                {
+                                                    $legalNoticeCaption = Read-Host "Enter the legal notice caption (header)"
+                                                    $confirm = Read-Host "The header reads the following: `n$legalNoticeCaption`nWould you like to continue? (y/N)"
+                                                } while ($confirm -inotlike "y*")
+                                                do
+                                                {
+                                                    $legalNoticeText = Read-Host "Enter the legal notice text (Use ``n for newline)"
+                                                    $confirm = Read-Host "The text reads the following (``n will be replaced): `n$legalNoticeText`nWould you like to continue? (y/N)"
+                                                } while ($confirm -inotlike "y*")
+                                                # I am so sorry
+                                                $bytes = [System.Text.Encoding]::Unicode.GetBytes($legalNoticeText)
+                                                $oldSequence = [byte[]](0x60, 0x00, 0x6E, 0x00)
+                                                $newSequence = [byte[]](0x0D, 0x00)
+                                                $modifiedBytes = New-Object System.Collections.Generic.List[byte]
+                                                $index = 0
+                                                while ($index -lt $bytes.Length)
+                                                {
+                                                    if ($bytes[$index] -eq $oldSequence[0] -and $bytes[$index+1] -eq $oldSequence[1] -and $bytes[$index+2] -eq $oldSequence[2] -and $bytes[$index+3] -eq $oldSequence[3])
+                                                    {
+                                                        $modifiedBytes.AddRange($newSequence)
+                                                        $index += 4
+                                                    }
+                                                    else 
+                                                    {
+                                                        $modifiedBytes.Add($bytes[$index])
+                                                        $index++
+                                                    }
+                                                }
+                                                $modifiedBytesArray = $modifiedBytes.ToArray()
+                                                $legalNoticeText = [System.Text.Encoding]::Unicode.GetString($modifiedBytesArray)
+                                                Write-Host "Setting logon banner..."
+                                                reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System" /v legalnoticecaption /t REG_SZ /d "$legalNoticeCaption"
+                                                reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System" /v legalnoticetext /t REG_SZ /d "$legalNoticeText"
+                                            }
                                         "2"
-                                        {
-                                            $domainName = Read-Host "What is the name of the domain that you would like to use?"
-                                            Write-Host "Setting logon banner..."
-                                            reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System" /v legalnoticecaption /t REG_SZ /d "IMPORANT NOTICE:"
-                                            reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System" /v legalnoticetext /t REG_SZ /d "By accessing this network resource, you consent to monitoring of your activities and understand $domainName may exercise its rights under the law to access, use, and disclose any information obtained from your use of this resource."
-                                        }
+                                            {
+                                                do
+                                                {
+                                                    $domainName = Read-Host "What is the name of the domain that you would like to use?"
+                                                    $confirm = Read-Host "The domain name is: $domainName`nWould you like to continue? (y/N)"
+                                                } while ($confirm -inotlike "y*")
+                                                Write-Host "Setting logon banner..."
+                                                reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System" /v legalnoticecaption /t REG_SZ /d "IMPORANT LEGAL NOTICE:"
+                                                reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System" /v legalnoticetext /t REG_SZ /d "By accessing this resource, you consent to monitoring of your activities and understand $domainName may exercise its rights under the law to access, use, and disclose any information obtained from your use of this resource."
+                                            }
                                         default
-                                        {
-                                            Write-Host "Invalid selection"
-                                            Break
+                                            {
+                                                Write-Host "Invalid selection"
+                                                Break
+                                            }
                                         }
-                                    }
                                 }
                             "4"
                                 {
-                                    Write-Warning "This will attempt to download Bluespawn client to current user's Downloads folder."
+                                    Write-Warning "`nThis will attempt to download Bluespawn client to current user's Downloads folder."
                                     $warning = Read-Host "Are you sure you want to continue? (y/N)"
                                     if ($warning -inotlike "y*")
                                     {
                                         Break
                                     }
-
                                     if(Test-Path $env:HOMEPATH\Downloads\BLUESPAWN-client-x64.exe)
                                     {
-                                        Write-Host "BLUESPAWN already installed at $env:HOMEPATH\Downloads\BLUESPAWN-client-x64.exe"
+                                        Write-Host "BLUESPAWN already downloaded at $env:HOMEPATH\Downloads\BLUESPAWN-client-x64.exe"
                                         Write-Host "Launch this tool from the CLI"
                                     }
                                     else
@@ -1086,7 +1158,7 @@ try {
                                 }
                             "5"
                                 {
-                                    Write-Warning "This will set an inactivity timeout to the amount of seconds specified by you."
+                                    Write-Warning "`nThis will set an inactivity timeout to the amount of seconds specified by you."
                                     $warning = Read-Host "Are you sure you want to continue? (y/N)"
                                     if ($warning -inotlike "y*")
                                     {
@@ -1098,7 +1170,7 @@ try {
                                 }
                             "6"
                                 {
-                                    Break
+                                        Break
                                 }
                             default
                                 {
