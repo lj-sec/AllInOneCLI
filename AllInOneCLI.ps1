@@ -316,7 +316,7 @@ if (!$NoWmf.IsPresent)
         $update = $true
         Write-Host "Updating WMF to 5.1...`n"
         Write-Host "Downloading WMF updater..."
-        $webClient.DownloadFile("$wmfLink", "$env:HOMEDRIVE\WindowsHardeningCLI\wmf-updater.exe")
+        $webClient.DownloadFile("$wmfLink", "$env:HOMEDRIVE\WindowsHardeningCLI\wmf-updater.msu")
         Write-Host "Running WMF updater..."
         Start-Process -FilePath "$env:HOMEDRIVE\WindowsHardeningCLI\wmf-updater.msu" -ArgumentList "/quiet","/norestart" -Wait
         Write-Host "Done!"
