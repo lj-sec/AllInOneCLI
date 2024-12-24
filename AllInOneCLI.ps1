@@ -12,7 +12,7 @@ The features of this tool include:
 [ X ]     -Checks for 4.8.x+
 [ X ]     -Forcefully installs 4.8 (2012+)
 [   ]     -Forcefully installs 4.5.2 (Win7+)
-        -WMF/Powershell version checking / updating
+        -WMF/PowerShell version checking / updating
 [ X ]     -Checks for 5.1+
 [ X ]     -Forcefully installs 5.1 (2012/2012 R2)
 [   ]     -Forcefully installs 5.1 (Win7+)
@@ -79,7 +79,7 @@ param (
     [switch]$NoWmf
 )
 
-# Powershell 3.0 compatible way of checking for admin, requires admin was introduced later
+# PowerShell 3.0 compatible way of checking for admin, requires admin was introduced later
 $currentUser = New-Object System.Security.Principal.WindowsPrincipal([System.Security.Principal.WindowsIdentity]::GetCurrent())
 if (!$currentUser.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator))
 {
@@ -89,11 +89,11 @@ if (!$currentUser.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Admin
 
 if($Force.IsPresent)
 {
-    [System.Environment]::SetEnvironmentVariable("updatedWithoutRestart",$false,"Machine")
+    [System.Environment]::SetEnvironmentVariable("updatedWithoutRestart","False","Machine")
     Write-Host "Cleared false positive! You may now rerun this script."
     Exit 1
 } 
-elseif([System.Environment]::GetEnvironmentVariable("updatedWithoutRestart","Machine" -eq $true))
+elseif([System.Environment]::GetEnvironmentVariable("updatedWithoutRestart","Machine") -eq "True")
 {
     Write-Warning "`nYou have updated without restart! Updates must take effect before rerunning script."
     Write-Host "If you have restarted and this is a false positive (which happens), rerun this script with -Force."
@@ -228,8 +228,8 @@ if(!$NoNet.IsPresent)
 
         if($updateNet -ilike "n*")
         {
-            Write-Warning "`nScript requires .NET 4.8+, exiting..."
-            Write-Host "If you would like to run this script anyway (not recommended), rerun with -Force."
+            Write-Host -ForegroundColor Red "`nScript requires .NET 4.8+, exiting..."
+            Write-Host "If you would like to run this script anyway (not recommended), rerun with -NoNet."
             Write-Log "Script requires .NET 4.8+, exiting..."
             Exit 1
         }
@@ -263,7 +263,7 @@ if (!$NoWmf.IsPresent)
     elseif($PSVersionTable.PSVersion.Major -ge "5" -and $PSVersionTable.PSVersion.Minor -ge "1")
     {
         Write-Host "WMF is up-to-date, 5.1.x"
-        if(!(Test-Path "$env:ProgramFiles\Powershell\7"))
+        if(!(Test-Path "$env:ProgramFiles\PowerShell\7"))
         {
             $updateWmf = Read-Host "Would you like to optionally install 7.4.1? (y/N)"
             if($updateWmf -ilike "y*")
@@ -280,33 +280,34 @@ if (!$NoWmf.IsPresent)
     }
     else
     {
-        Write-Warning "`nPowershell is not up-to-date!"
-        $updateWmf = Read-Host "WMF 5.1 or later is required. Would you like to update now to 5.1? (Y/n)"
+        Write-Warning "`nPowerShell is not up-to-date!"
+        Write-Log "Outdated PowerShell version detected"
+        $updateWmf = Read-Host "WMF/PowerShell 5.1 or later is required. Would you like to update now to 5.1? (Y/n)"
         if($updateWmf -ilike "n*")
         {
-            Write-Warning "`nPowershell 5.1 and later is required for this script!"
+            Write-Warning "`nPowerShell 5.1 and later is required for this script!"
             Write-Host "If you would like to run this script anyway (not recommended), rerun with -NoWmf."
             Exit 1
         }
-        else
+        switch -Wildcard ((Get-CimInstance Win32_OperatingSystem).Caption)
         {
-            $updateWmf = $true
-            switch -Wildcard ((Get-CimInstance Win32_OperatingSystem).Caption)
-            {
-                "*2012 R2*"
-                    {
-                        $wmfLink = "https://download.microsoft.com/download/6/F/5/6F5FF66C-6775-42B0-86C4-47D41F2DA187/W2K12-KB3191565-x64.msu"
-                    }
-                "*2012*"
-                    {
-                        $wmfLink = "https://download.microsoft.com/download/6/F/5/6F5FF66C-6775-42B0-86C4-47D41F2DA187/Win8.1AndW2K12R2-KB3191564-x64.msu"
-                    }
-                default
-                    {
-                        Write-Warning "`nCould not fetch link to download WMF 5.1. This script has only been tested on Windows Server 2012/Windows 10 (1607) and later, with WMF 5.1+."
-                        Write-Host "It is highly recommended to install this version yourself.`nIf you would like to run this script anyway (not recommended), rerun with -NoWmf"
-                    }
-            }
+            "*2012 R2*"
+                {
+                    $updateWmf = $true
+                    $wmfLink = "https://download.microsoft.com/download/6/F/5/6F5FF66C-6775-42B0-86C4-47D41F2DA187/Win8.1AndW2K12R2-KB3191564-x64.msu"
+                }
+            "*2012*"
+                {
+                    $updateWmf = $true
+                    $wmfLink = "https://download.microsoft.com/download/6/F/5/6F5FF66C-6775-42B0-86C4-47D41F2DA187/W2K12-KB3191565-x64.msu"
+                }
+            default
+                {
+                    $updateWmf = $false
+                    Write-Warning "`nCould not fetch link to download WMF 5.1. This script has only been tested on Windows Server 2012/Windows 10 (1607) and later, with WMF 5.1+."
+                    Write-Host "It is highly recommended to install this version yourself.`nIf you would like to run this script anyway (not recommended), rerun with -NoWmf"
+                    Exit 1
+                }
         }
     }
 
@@ -335,12 +336,12 @@ if($update)
     $restart = Read-Host "`nNecessary updates complete. Restart right now? (y/N)"
     if($restart -ilike "y*")
     {
-        [System.Environment]::GetEnvironmentVariable("updatedWithoutRestart",$false,"Machine")
+        [System.Environment]::SetEnvironmentVariable("updatedWithoutRestart","False","Machine")
         Restart-Computer
     }
     else
     {
-        [System.Environment]::SetEnvironmentVariable("updatedWithoutRestart",$true,"Machine")
+        [System.Environment]::SetEnvironmentVariable("updatedWithoutRestart","True","Machine")
         Write-Warning "`nRestart is required for updates to take effect."
         Exit 1
     }
@@ -482,7 +483,7 @@ try {
                     reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v SCENoApplyLegacyAuditPolicy /t REG_DWORD /d 1 /f
 
                     # Enable PowerShell Logging
-                    Write-Log "Enabling Powershell logging..."
+                    Write-Log "Enabling PowerShell logging..."
                     reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging" /v EnableModuleLogging /t REG_DWORD /d 1 /f
                     reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1 /f
 
@@ -519,7 +520,7 @@ try {
                     wevtutil sl Security /ms:1024000
                     wevtutil sl Application /ms:1024000
                     wevtutil sl System /ms:1024000
-                    wevtutil sl "Windows Powershell" /ms:1024000
+                    wevtutil sl "Windows PowerShell" /ms:1024000
                     wevtutil sl "Microsoft-Windows-PowerShell/Operational" /ms:1024000
 
                     # Stop Remote Registry
