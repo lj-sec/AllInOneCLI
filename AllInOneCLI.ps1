@@ -103,14 +103,10 @@ elseif([System.Environment]::GetEnvironmentVariable("updatedWithoutRestart","Mac
 # Creating a log file to note changes made to the system
 mkdir -ErrorAction SilentlyContinue $env:HOMEDRIVE\WindowsHardeningCLI | Out-Null
 mkdir -ErrorAction SilentlyContinue $env:HOMEDRIVE\WindowsHardeningCLI\Logs | Out-Null
-$i = 1
-while(Test-Path $env:HOMEDRIVE\WindowsHardeningCLI\Logs\log.$i.txt)
-{
-    $i++
-}
-Write-Host "`nEstablishing a log file at $env:HOMEDRIVE\WindowsHardeningCLI\Logs\log.$i.txt"
-Out-File $env:HOMEDRIVE\WindowsHardeningCLI\Logs\log.$i.txt
-$logFile = "$env:HOMEDRIVE\WindowsHardeningCLI\Logs\log.$i.txt"
+$curTime = Get-Date -Format "yyyyMMdd_HHmmss"
+$logFile = "$env:HOMEDRIVE\WindowsHardeningCLI\Logs\log_$curTime.txt"
+Write-Host "`nEstablishing a log file at $logFile"
+Out-File $logFile
 
 # Write-Log Function to write logs to $logFile
 function Write-Log {
@@ -215,7 +211,7 @@ if(!$NoNet.IsPresent)
         default
             {
                 Write-Warning "`nCould not detect compatible Windows Version, and therefore .NET version.`nThis script has only been tested on Windows Server 2012/Windows 10 and later, with .NET 4.8 and later."
-                Write-Host "If you would like to run this script anyway (not recommended), rerun with -NoNet."
+                Write-Host "If you would like to run this script anyway, rerun with -NoNet."
                 Exit 1
             }
     }
@@ -228,9 +224,9 @@ if(!$NoNet.IsPresent)
 
         if($updateNet -ilike "n*")
         {
-            Write-Host -ForegroundColor Red "`nScript requires .NET 4.8+, exiting..."
-            Write-Host "If you would like to run this script anyway (not recommended), rerun with -NoNet."
-            Write-Log "Script requires .NET 4.8+, exiting..."
+            Write-Warning "`nScript recommends .NET 4.8+, exiting..."
+            Write-Host "If you would like to run this script anyway, rerun with -NoNet."
+            Write-Log "Script recommends .NET 4.8+, exiting..."
             Exit 1
         }
 
@@ -268,25 +264,24 @@ if (!$NoWmf.IsPresent)
             $updateWmf = Read-Host "Would you like to optionally install 7.4.1? (y/N)"
             if($updateWmf -ilike "y*")
             {
-                Write-Host "No problem"
-                $updateWmf = $false
+                $updateWmf = $true
+                $wmfLink = "https://github.com/PowerShell/PowerShell/releases/download/v7.4.1/PowerShell-7.4.1-win-x64.msi"
             }
             else
             {
-                $updateWmf = $true
-                $wmfLink = "https://github.com/PowerShell/PowerShell/releases/download/v7.4.1/PowerShell-7.4.1-win-x64.msi"
+                $updateWmf = $false
             }
         }
     }
     else
     {
-        Write-Warning "`nPowerShell is not up-to-date!"
         Write-Log "Outdated PowerShell version detected"
-        $updateWmf = Read-Host "WMF/PowerShell 5.1 or later is required. Would you like to update now to 5.1? (Y/n)"
+        Write-Warning "`nPowerShell is not up-to-date!"
+        $updateWmf = Read-Host "WMF/PowerShell 5.1 or later is recommended. Would you like to update now to 5.1? (Y/n)"
         if($updateWmf -ilike "n*")
         {
-            Write-Warning "`nPowerShell 5.1 and later is required for this script!"
-            Write-Host "If you would like to run this script anyway (not recommended), rerun with -NoWmf."
+            Write-Warning "`nPowerShell 5.1 and later is recommended for this script!"
+            Write-Host "If you would like to run this script anyway, rerun with -NoWmf."
             Exit 1
         }
         switch -Wildcard ((Get-CimInstance Win32_OperatingSystem).Caption)
@@ -305,7 +300,7 @@ if (!$NoWmf.IsPresent)
                 {
                     $updateWmf = $false
                     Write-Warning "`nCould not fetch link to download WMF 5.1. This script has only been tested on Windows Server 2012/Windows 10 (1607) and later, with WMF 5.1+."
-                    Write-Host "It is highly recommended to install this version yourself.`nIf you would like to run this script anyway (not recommended), rerun with -NoWmf"
+                    Write-Host "It is highly recommended to install this version yourself.`nIf you would like to run this script anyway, rerun with -NoWmf"
                     Exit 1
                 }
         }
@@ -314,8 +309,8 @@ if (!$NoWmf.IsPresent)
     if($updateWmf)
     {
         $update = $true
-        Write-Host "Updating WMF to 5.1...`n"
-        Write-Host "Downloading WMF updater..."
+        Write-Host "`nUpdating WMF..."
+        Write-Host "`nDownloading WMF updater..."
         $webClient.DownloadFile("$wmfLink", "$env:HOMEDRIVE\WindowsHardeningCLI\wmf-updater.msu")
         Write-Host "Running WMF updater..."
         Start-Process -FilePath "$env:HOMEDRIVE\WindowsHardeningCLI\wmf-updater.msu" -ArgumentList "/quiet","/norestart" -Wait
@@ -525,7 +520,7 @@ try {
 
                     # Stop Remote Registry
                     Write-Log "Attempting to stop remote registry..."
-                    net stop RemoteRegistry -Force
+                    net stop RemoteRegistry
 
                     # Flush dns
                     Write-Log "Flushing DNS..."
@@ -533,7 +528,7 @@ try {
                     
                     # Stop WinRM
                     Write-Log "Attempting to stop Remote Management..."
-                    net stop WinRM -Force
+                    net stop WinRM
 
                     # Disable Guest user
                     Write-Log "Disabling the Guest user account..."
@@ -635,136 +630,213 @@ try {
                         mkdir -ErrorAction SilentlyContinue $env:HOMEDRIVE\WindowsHardeningCLI\AD | Out-Null
 
                         Write-Host -ForegroundColor Blue "`n---Active Directory---"
-                        Write-Host "1. Scramble default password for all users and save in a .csv"
-                        Write-Host "2. Remove groups from all users besides current administrator"
-                        Write-Host "3. Generate new AD users"
-                        Write-Host "4. Begin auditing user permissions"
-                        Write-Host "5. Organizational Unit Management"
-                        Write-Host "6. Group Policy Management"
-                        Write-Host "7. Main menu"
+                        Write-Host "1. User Management"
+                        Write-Host "2. Group Management"
+                        Write-Host "3. Organizational Unit Management"
+                        Write-Host "4. Group Policy Management"
+                        Write-Host "5. Security, Auditing, and Health"
+                        Write-Host "6. Main menu"
                         $adchoice = Read-Host "`nYour selection"
                         switch($adchoice)
                         {
                             "1"
                                 {
-                                    Write-Host "`n---Change All Default Passwords---"
-                                    Write-Warning "`nThis generates new passwords for all users in this Active Directory besides the current Administrator and outputs them into a .csv in the $env:HOMEDRIVE\WindowsHardeneingCLI\AD directory"
-                                    $warning = Read-Host "Are you sure you want to continue? (y/N)"
-                                    if ($warning -inotlike "y*")
+                                    do
                                     {
-                                        Break
-                                    }
-                                    Write-Log "Change all default passwords script begins"
-
-                                    function New-Password
-                                    {
-                                        do
+                                        Write-Host -ForegroundColor Blue "`n---User Management---"
+                                        Write-Host "1. Scramble default password for all users and save in a .csv"
+                                        Write-Host "2. Begin auditing user permissions"
+                                        Write-Host "3. Remove groups from all users besides current administrator"
+                                        Write-Host "4. Generate new AD users"
+                                        Write-Host "5. Main menu"
+                                        $userManagementChoice = Read-Host "`nYour selection"
+                                        switch($userManagementChoice)
                                         {
-                                            $length = Get-Random -Minimum 12 -Maximum 17
-                                            $characters = @([char[]]("a"[0].."z"[0])+[char[]]("A"[0].."Z"[0])+[char[]]("0"[0].."9"[0])+[char[]]("!@$%^&*()-=_{}[]|:?.~"))
-                                            $new = -join (Get-Random -Count $length -InputObject $characters)
-                                        } until(($new -match "[a-z]") -and ($new -match "[A-Z]") -and ($new -match "[0-9]") -and ($new -match "[!@$%^&*()\-=_{\[\]}|:?.~]"))
-                                        return $new
-                                    }   
+                                            "1"
+                                                {
+                                                    Write-Host "`n---Change All Default Passwords---"
+                                                    $csvPath = "$env:HOMEDRIVE\WindowsHardeningCLI\AD\AD_Passwords.csv"
+                                                    Write-Warning "`nThis generates new passwords for all users in this Active Directory besides the current Administrator and outputs them into a .csv file at $csvPath"
+                                                    $warning = Read-Host "Are you sure you want to continue? (y/N)"
+                                                    if ($warning -inotlike "y*")
+                                                    {
+                                                        Break
+                                                    }
+                                                    Write-Log "Change all default passwords script begins, caught errors will be listed before end message if any."
 
-                                    $currentAdmin = $env:USERNAME
-                                    $users = Get-ADUser -Filter {SamAccountName -ne $currentAdmin}
-                                    $passwords = @()
+                                                    function New-Password
+                                                    {
+                                                        do
+                                                        {
+                                                            $length = Get-Random -Minimum 12 -Maximum 17
+                                                            $characters = @([char[]]("a"[0].."z"[0])+[char[]]("A"[0].."Z"[0])+[char[]]("0"[0].."9"[0])+[char[]]("!@$%^&*()-=_{}[]|:?.~"))
+                                                            $new = -join (Get-Random -Count $length -InputObject $characters)
+                                                        } until(($new -match "[a-z]") -and ($new -match "[A-Z]") -and ($new -match "[0-9]") -and ($new -match "[!@$%^&*()\-=_{\[\]}|:?.~]"))
+                                                        return $new
+                                                    }
 
-                                    foreach ($user in $users)
-                                    {
-                                        try
-                                        {
-                                            $newPass = New-Password
-                                            Set-ADAccountPassword -Identity $user.SamAccountName -NewPassword (ConvertTo-SecureString $newPass -AsPlainText -Force) -Reset
-                                            $passwords += [PSCustomObject]@{
-                                                Username = $user.SamAccountName
-                                                Password = $newPass
+                                                    $currentAdmin = $env:USERNAME
+                                                    $users = Get-ADUser -Filter {SamAccountName -ne $currentAdmin}
+                                                    "Username,Password" | Out-File -FilePath $csvPath -Force
+                                                    
+                                                    foreach ($user in $users)
+                                                    {
+                                                        $userName = $user.SamAccountName
+                                                        $newPass = New-Password
+                                                        try
+                                                        {
+                                                            Set-ADAccountPassword -Identity $userName -NewPassword (ConvertTo-SecureString $newPass -AsPlainText -Force) -Reset
+                                                            "$userName,$newPass" | Out-File -Append -FilePath "$csvPath"
+                                                            Write-Host -ForegroundColor Green "Password reset for $($userName)"
+                                                        } 
+                                                        catch
+                                                        {
+                                                            Write-Host -ForegroundColor Red "Failed to reset password for $userName using $($newPass): $_"
+                                                            Write-Log "Failed to reset password for $userName using $($newPass): $_"
+                                                        }
+                                                    }
+                                                    Write-Host -ForegroundColor Cyan "Changed passwords saved to $csvPath, errors saved in $logFile"
+                                                    Write-Log "Change all default passwords script ends, changed passwords saved to: $csvPath."
+                                                }
+                                            "2"
+                                                {
+                                                    Write-Warning "`nThis will begin the auditing of user permissions and groups on this AD"
+                                                    $warning = Read-Host "Are you sure you want to continue? (y/N)"
+                                                    if ($warning -inotlike "y*")
+                                                    {
+                                                        Break
+                                                    }
+                                                }
+                                            "3"
+                                                {
+                                                    Write-Warning "`nThis will remove *ALL* groups that *ALL* users (besides this current Admin!) on the AD Domain belong to, reducing them all to `"Domain Users`""
+                                                    Write-Host "A log of groups that members were previously in will be stored in the $env:HOMEDRIVE\WindowsHardeningCLI\AD directory"
+                                                    $warning = Read-Host "Are you sure you want to continue? (y/N)"
+                                                    if ($warning -inotlike "y*")
+                                                    {
+                                                        Break
+                                                    }
+                                                    Write-Log "Remove all AD users from groups script begins"
+
+                                                    $currentAdmin = $env:USERNAME
+                                                    $users = Get-ADUser -Filter {SamAccountName -ne $currentAdmin}
+
+                                                    $curTime = Get-Date -Format "yyyyMMdd_HHmmss"
+                                                    $groupLogPath = "$env:HOMEDRIVE\WindowsHardeningCLI\AD\AD_removedgroups_$curTime.txt"
+                                                    Out-File -FilePath $groupLogPath -Force
+                                                    "Time Start: $(Get-Date -Format "MM/dd/yyyy HH:mm:ss K")" | Out-File -Append -FilePath $groupLogPath 
+                                                    
+                                                    foreach ($user in $users)
+                                                    {
+                                                        $userGroups = Get-ADUser $user.SamAccountName | Get-ADPrincipalGroupMembership | Where-Object { $_.SamAccountName -ne "Domain Users" }
+                                                        foreach ($group in $userGroups)
+                                                        {
+                                                            try
+                                                            {
+                                                                Remove-ADGroupMember -Identity $group.SamAccountName -Members $user.SamAccountName -Confirm:$false
+                                                                Write-Host -ForegroundColor Green "Removed $($user.SamAccountName) from group $($group.SamAccountName)"
+                                                                "$($user.SamAccountName) was removed from group $($group.SamAccountName)" | Out-File -Append -FilePath $groupLogPath
+                                                            }
+                                                            catch
+                                                            {
+                                                                Write-Host -ForegroundColor Red "Failed to remove $($user.SamAccountName) from $(group.SamAccountName): $_"
+                                                            }
+                                                        }
+                                                    }
+                                                
+                                                    Write-Host -ForegroundColor Cyan "Groups have been removed from all AD users, log saved at: $groupLogPath"
+                                                    "Time End: $(Get-Date -Format "MM/dd/yyyy HH:mm:ss K")" | Out-File -Append -FilePath $groupLogPath
+                                                    Write-Log "Remove all AD users from groups script ends"
+                                                }
+                                            "4"
+                                                {
+                                                    Write-Warning "`nThis will generate users for this AD"
+                                                    $warning = Read-Host "Are you sure you want to continue? (y/N)"
+                                                    if ($warning -inotlike "y*")
+                                                    {
+                                                        Break
+                                                    }
+                                                }
+                                            "5"
+                                                {
+                                                    Break
+                                                }
+                                            default
+                                                {
+                                                    Write-Host "`nInvalid choice"
+                                                }
                                         }
-                                        Write-Host -ForegroundColor Green "Password reset for $($user.SamAccountName)"
-                                        } 
-                                        catch
-                                        {
-                                            Write-Host -ForegroundColor Red "Failed to reset password for $($user.SamAccountName): $_"
-                                        }
-                                    }
-                                    
-                                    $csvPath = "$env:HOMEDRIVE\WindowsHardeningCLI\AD\AD_Passwords.csv"
-                                    $passwords | Export-Csv -Path $csvPath -NoTypeInformation
-                                    Write-Host -ForegroundColor Cyan "Passwords saved to $csvPath"
-                                    Write-Log "Change all default passwords script ends, log saved to: $csvPath"
+                                    } while ($userManagementChoice)
                                 }
                             "2"
                                 {
-                                    Write-Warning "`nThis will remove *ALL* groups that *ALL* users (besides this current Admin!) on the AD Domain belong to, reducing them all to `"Domain Users`""
-                                    Write-Host "A log of groups that members were previously in will be stored in the $env:HOMEDRIVE\WindowsHardeningCLI\AD directory"
-                                    $warning = Read-Host "Are you sure you want to continue? (y/N)"
-                                    if ($warning -inotlike "y*")
+                                    do
                                     {
-                                        Break
-                                    }
-                                    Write-Log "Remove all AD users from groups script begins"
-
-                                    $currentAdmin = $env:USERNAME
-                                    $users = Get-ADUser -Filter {SamAccountName -ne $currentAdmin}
-                                    $groupLogPath = "$env:HOMEDRIVE\WindowsHardeningCLI\AD\AD_removedgroups$i.txt"
-                                    Out-File -FilePath $groupLogPath -Force
-                                    "Time Start: $(Get-Date -Format "MM/dd/yyyy HH:mm:ss K")" | Out-File -Append -FilePath $groupLogPath 
-
-                                    foreach ($user in $users)
-                                    {
-                                        $userGroups = Get-ADUser $user.SamAccountName | Get-ADPrincipalGroupMembership | Where-Object { $_.SamAccountName -ne "Domain Users" }
-                                        foreach ($group in $userGroups)
+                                        Write-Host -ForegroundColor Blue "`n---Group Management---"
+                                        Write-Host "1. Main Menu"
+                                        $gmchoice = Read-Host "`nYour selection"
+                                        switch($gmchoice)
                                         {
-                                            try
-                                            {
-                                                Remove-ADGroupMember -Identity $group.SamAccountName -Members $user.SamAccountName -Confirm:$false
-                                                Write-Host -ForegroundColor Green "Removed $($user.SamAccountName) from group $($group.SamAccountName)"
-                                                "$($user.SamAccountName) was removed from group $($group.SamAccountName)" | Out-File -Append -FilePath $groupLogPath
-                                            }
-                                            catch
-                                            {
-                                                Write-Host -ForegroundColor Red "Failed to remove $($user.SamAccountName) from $(group.SamAccountName): $_"
-                                            }
+                                            "1"
+                                                {
+                                                    Break
+                                                }
+                                            default
+                                                {
+                                                    Write-Host "`nInvalid choice"
+                                                }
                                         }
-                                    }
-
-                                    Write-Host -ForegroundColor Cyan "Groups have been removed from all AD users, log saved at: $groupLogPath"
-                                    "Time End: $(Get-Date -Format "MM/dd/yyyy HH:mm:ss K")" | Out-File -Append -FilePath $groupLogPath
-                                    Write-Log "Remove all AD users from groups script ends"
+                                    } while ($gmchoice -ne "1")
                                 }
                             "3"
                                 {
-                                    Write-Warning "`nThis will generate users for this AD"
-                                    $warning = Read-Host "Are you sure you want to continue? (y/N)"
-                                    if ($warning -inotlike "y*")
+                                    do
                                     {
-                                        Break
-                                    }
+                                        Write-Host -ForegroundColor Blue "`n---OU Management---"
+                                        Write-Host "1. Main Menu"
+                                        $ouchoice = Read-Host "`nYour selection"
+                                        switch($ouchoice)
+                                        {
+                                            "1"
+                                                {
+                                                    Break
+                                                }
+                                            default
+                                                {
+                                                    Write-Host "`nInvalid choice"
+                                                }
+                                        }
+                                    } while ($ouchoice -ne "1")
                                 }
                             "4"
                                 {
-                                    Write-Warning "`nThis will begin the auditing of user permissions and groups on this AD"
-                                    $warning = Read-Host "Are you sure you want to continue? (y/N)"
-                                    if ($warning -inotlike "y*")
+                                    do
                                     {
-                                        Break
-                                    }
+                                        Write-Host -ForegroundColor Blue "`n---GP Management---"
+                                        Write-Host "1. Main Menu"
+                                        $gpchoice = Read-Host "`nYour selection"
+                                        switch($gpchoice)
+                                        {
+                                            "1"
+                                                {
+                                                    Break
+                                                }
+                                            default
+                                                {
+                                                    Write-Host "`nInvalid choice"
+                                                }
+                                        }
+                                    } while ($gpchoice -ne "1")
                                 }
                             "5"
                                 {
                                     do
                                     {
-                                        Write-Host -ForegroundColor Blue "`n---OU Management---"
-                                        Write-Host ""
-                                        Write-Host ""
-                                        $ouchoice = Read-Host "`nYour selection"
-                                        switch($ouchoice)
+                                        Write-Host -ForegroundColor Blue "`n---Security, Auditing, and Health---"
+                                        Write-Host "1. Main Menu"
+                                        $sahchoice = Read-Host "`nYour selection"
+                                        switch($sahchoice)
                                         {
-                                            ""
-                                                {
-
-                                                }
                                             "1"
                                                 {
                                                     Break
@@ -774,34 +846,9 @@ try {
                                                     Write-Host "`nInvalid choice"
                                                 }
                                         }
-                                    } while ($ouchoice -ne "1")
+                                    } while ($sahchoice -ne "1")
                                 }
                             "6"
-                                {
-                                    do
-                                    {
-                                        Write-Host -ForegroundColor Blue "`n---GP Management---"
-                                        Write-Host ""
-                                        Write-Host ""
-                                        $ouchoice = Read-Host "`nYour selection"
-                                        switch($ouchoice)
-                                        {
-                                            ""
-                                                {
-
-                                                }
-                                            "1"
-                                                {
-                                                    Break
-                                                }
-                                            default
-                                                {
-                                                    Write-Host "`nInvalid choice"
-                                                }
-                                        }
-                                    } while ($ouchoice -ne "1")
-                                }
-                            "7"
                                 {
                                     Break
                                 }
@@ -810,9 +857,8 @@ try {
                                     Write-Host "`nInvalid choice"
                                 }
                         }
-                    } while ($adchoice -ne "7")
+                    } while ($adchoice -ne "4")
                 }
-
             "4" 
                 {
                     do
@@ -983,7 +1029,7 @@ try {
                                         try
                                         {
                                             Write-Host "Restarting DNS..."
-                                            Restart-Service DHS -Force
+                                            Restart-Service DNS -Force
                                             Write-Host -ForegroundColor Green "Successfully restarted DNS"
                                         }
                                         catch
@@ -1189,7 +1235,9 @@ try {
                     $ipv6 = Read-Host "Are you all using IPv6? (y/N)" 
                     $ipv6 = $ipv6 -ilike "y*"
 
-                    Write-Log "Inventory being stored in $env:HOMEDRIVE\WindowsHardeningCLI\Inventory\inventory.$i.txt" 
+                    $curTime = Get-Date -Format "yyyyMMdd_HHmmss"
+                    $inventoryFile = "$env:HOMEDRIVE\WindowsHardeningCLI\Inventory\inventory_$curTime.txt"
+                    Write-Log "Inventory being stored in $inventoryFile" 
 
                     Write-Host "Loading inventory..."
 
@@ -1273,10 +1321,10 @@ try {
                         Write-Output "For a list of potential vulnerabilities, visit https://www.cvedetails.com."
                         Write-Output "If searching via vendor, all Windows operating systems are under Microsoft."
                         Write-Output "If searching via product, exclude the Windows edition (such as Standard or Home) when searching (i.e. search `"Windows Server 2012`").`n"
-                    } | Out-File $env:HOMEDRIVE\WindowsHardeningCLI\Inventory\inventory.$i.txt -Encoding UTF8
+                    } | Out-File $inventoryFile -Encoding UTF8
 
-                    Write-Host "Sucess, inventory saved in $env:HOMEDRIVE\WindowsHardeningCLI\Inventory\inventory.$i.txt"
-                    Write-Log "Sucess, inventory saved in $env:HOMEDRIVE\WindowsHardeningCLI\Inventory\inventory.$i.txt" 
+                    Write-Host "Sucess, inventory saved in $inventoryFile"
+                    Write-Log "Sucess, inventory saved in $inventoryFile" 
                 }
             "7"
                 {
