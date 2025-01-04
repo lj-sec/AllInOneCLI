@@ -149,71 +149,40 @@ $update=$false
 if(!$NoNet.IsPresent)
 {
     # Checking for .NET Frameworks older than 4.8, latest .NET compatible for Windows 2012 and up
+    # .NET Framework compatibility variables
     $outdatedNet = $false
-    switch -Wildcard ((Get-CimInstance Win32_OperatingSystem).Caption)
+    $netUpdateLink = "https://go.microsoft.com/fwlink/?LinkId=2085155"
+    $dotnet = (Get-ItemProperty -LiteralPath 'HKLM:SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full' -Name Release).Release
+
+    # Ensure .NET Framework is out of date and OS is compatible
+    switch -Wildcard ($version)
     {
-        "*2012 R2*"
+        {($_ -like "*2012 R2*") -or ($_ -like "*2012*" ) -or ($_ -like "*2016*") -or ($_ -like "*2019*")}
+        {
+            if ($dotnet -lt "528049")
             {
-                if((Get-ItemProperty -LiteralPath 'HKLM:SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full' -Name Release).Release -lt "528049")
-                {
-                    $outdatedNet = $true
-                    $netUpdateLink = "https://go.microsoft.com/fwlink/?LinkId=2085155"
-                }
+                $outdatedNet = $true
             }
-        "*2012*"
+        }
+        {($_ -like "*2022*") -or ($_ -like "*10*")}
+        {
+            if ($dotnet -lt "533325")
             {
-                if((Get-ItemProperty -LiteralPath 'HKLM:SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full' -Name Release).Release -lt "528049")
-                {
-                    $outdatedNet = $true
-                    $netUpdateLink = "https://go.microsoft.com/fwlink/?LinkId=2085155"
-                }
+                $outdatedNet = $true
             }
-        "*2016*"
-            {
-                if((Get-ItemProperty -LiteralPath 'HKLM:SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full' -Name Release).Release -lt "528049")
-                {
-                    $outdatedNet = $true
-                    $netUpdateLink = "https://go.microsoft.com/fwlink/?LinkId=2085155"
-                }
-            }
-        "*2019*"
-            {
-                if((Get-ItemProperty -LiteralPath 'HKLM:SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full' -Name Release).Release -lt "528049")
-                {
-                    $outdatedNet = $true
-                    $netUpdateLink = "https://go.microsoft.com/fwlink/?LinkId=2085155"
-                }
-            }
-        "*2022*"
-            {
-                if((Get-ItemProperty -LiteralPath 'HKLM:SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full' -Name Release).Release -lt "533325")
-                {
-                    $outdatedNet = $true
-                    $netUpdateLink = "https://go.microsoft.com/fwlink/?LinkId=2203304"
-                }
-            }
-        "*10*"
-            {
-                if((Get-ItemProperty -LiteralPath 'HKLM:SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full' -Name Release).Release -lt "533325")
-                {
-                    $outdatedNet = $true
-                    $netUpdateLink = "https://go.microsoft.com/fwlink/?LinkId=2203304"
-                }
-            }
+        }
         "*11*"
+        {
+            if ($dotnet -lt "533320")
             {
-                if((Get-ItemProperty -LiteralPath 'HKLM:SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full' -Name Release).Release -lt "533320")
-                {
-                    $outdatedNet = $true
-                    $netUpdateLink = "https://go.microsoft.com/fwlink/?LinkId=2203304"
-                }
+                $outdatedNet = $true
             }
+        }
         default
-            {
-                Write-Warning "`nCould not detect compatible Windows Version, and therefore .NET version.`nThis script has only been tested on Windows Server 2012/Windows 10 and later, with .NET 4.8 and later."
-                Write-Host "If you would like to run this script anyway, rerun with -NoNet."
-                Exit 1
-            }
+        {
+            Write-Error "Could not detect operating system; .NET 4.8 is compatible with Windows 2012 Servers and later"
+            Exit 1
+        }
     }
 
     if($outdatedNet)
