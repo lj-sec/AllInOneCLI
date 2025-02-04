@@ -157,23 +157,10 @@ if(!$NoNet.IsPresent)
     # Ensure .NET Framework is out of date and OS is compatible
     switch -Wildcard ($version)
     {
+        
         {($_ -like "*2012 R2*") -or ($_ -like "*2012*" ) -or ($_ -like "*2016*") -or ($_ -like "*2019*")}
         {
             if ($dotnet -lt "528049")
-            {
-                $outdatedNet = $true
-            }
-        }
-        {($_ -like "*2022*") -or ($_ -like "*10*")}
-        {
-            if ($dotnet -lt "533325")
-            {
-                $outdatedNet = $true
-            }
-        }
-        "*11*"
-        {
-            if ($dotnet -lt "533320")
             {
                 $outdatedNet = $true
             }
